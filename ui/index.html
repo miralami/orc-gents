@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>orc-gents</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #6b7385;
+    --line: #e2e5ec; --accent: #3b6cf6; --ok: #1f9d55; --bad: #d64545; --warn: #c58a00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1218; --panel: #171c25; --text: #e7eaf0; --muted: #8b93a5;
+      --line: #262d3a; --accent: #6d92ff; --ok: #3ccf7f; --bad: #ff6b6b; --warn: #f0b429;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1218; --panel: #171c25; --text: #e7eaf0; --muted: #8b93a5;
+    --line: #262d3a; --accent: #6d92ff; --ok: #3ccf7f; --bad: #ff6b6b; --warn: #f0b429;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; background: var(--bg); color: var(--text); }
+  header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { font-size: 16px; margin: 0; }
+  header .spacer { flex: 1; }
+  main { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: 16px; padding: 16px; max-width: 1200px; margin: 0 auto; }
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; padding: 12px; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 10px; }
+  .job { display: block; width: 100%; text-align: left; background: none; border: 1px solid transparent; border-radius: 8px; padding: 8px 10px; color: inherit; cursor: pointer; font: inherit; }
+  .job:hover { border-color: var(--line); }
+  .job.active { border-color: var(--accent); }
+  .job .t { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .job .m { color: var(--muted); font-size: 12px; }
+  .badge { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); margin-left: 6px; vertical-align: middle; }
+  .s-done { color: var(--ok); } .s-failed { color: var(--bad); } .s-running, .s-queued { color: var(--warn); } .s-merged { color: var(--accent); }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+  input, textarea, select { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; }
+  textarea { min-height: 110px; resize: vertical; }
+  button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  pre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; overflow: auto; max-height: 320px; white-space: pre-wrap; word-break: break-word; font: 12px/1.45 ui-monospace, Consolas, monospace; margin: 8px 0 0; }
+  .msg { margin-top: 10px; font-size: 13px; }
+  .msg.err { color: var(--bad); } .msg.ok { color: var(--ok); }
+  .checks div { font-size: 13px; padding: 2px 0; }
+  .checks .ok { color: var(--ok); } .checks .fail { color: var(--bad); } .checks .warn { color: var(--warn); }
+  .muted { color: var(--muted); font-size: 12px; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>orc-gents</h1>
+  <span class="muted" id="conn">connecting...</span>
+  <span class="spacer"></span>
+  <button id="themeBtn" title="Toggle light/dark">Theme</button>
+</header>
+
+<main>
+  <section class="card">
+    <h2>Jobs</h2>
+    <div id="jobs"><div class="muted">No jobs yet.</div></div>
+  </section>
+
+  <section>
+    <div class="card" id="newCard">
+      <h2>New job</h2>
+      <form id="newForm">
+        <label for="repo">Repository folder (must be a git repo with at least one commit)</label>
+        <input id="repo" placeholder="C:\path\to\your\repo" required>
+        <label for="model">Model</label>
+        <input id="model" list="modelList" placeholder="9router/Cheap" required>
+        <datalist id="modelList"></datalist>
+        <label for="task">Task</label>
+        <textarea id="task" placeholder="Describe the change. Be specific about files and expected behavior." required></textarea>
+        <div class="row">
+          <button class="primary" type="submit" id="startBtn">Start in background</button>
+        </div>
+        <div class="msg" id="formMsg"></div>
+      </form>
+    </div>
+
+    <div class="card" id="detailCard" style="margin-top:16px" hidden>
+      <h2>Job details</h2>
+      <div id="detailHead"></div>
+      <label>Changes</label>
+      <pre id="diffStat">(none)</pre>
+      <label>Log (last 30 lines)</label>
+      <pre id="logTail">(empty)</pre>
+      <div class="row">
+        <button id="mergeBtn" class="primary">Merge</button>
+        <button id="cleanBtn">Clean up</button>
+        <button id="refreshBtn">Refresh</button>
+      </div>
+      <div class="msg" id="actionMsg"></div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h2>Setup check</h2>
+      <div class="checks" id="checks"><div class="muted">Checking...</div></div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  let selected = null;
+  let timer = null;
+
+  // Use textContent everywhere: task text and logs come from files and models, so never inject them as HTML.
+  function el(tag, props, children) {
+    const n = document.createElement(tag);
+    if (props) for (const k in props) {
+      if (k === 'class') n.className = props[k];
+      else if (k === 'text') n.textContent = props[k];
+      else n.setAttribute(k, props[k]);
+    }
+    (children || []).forEach((c) => n.appendChild(c));
+    return n;
+  }
+
+  async function api(path, opts) {
+    const r = await fetch(path, opts);
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(body.error || ('HTTP ' + r.status));
+    return body;
+  }
+  function post(path, data) {
+    return api(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data || {}) });
+  }
+
+  function setMsg(id, text, kind) {
+    const m = $(id);
+    m.textContent = text || '';
+    m.className = 'msg' + (kind ? ' ' + kind : '');
+  }
+
+  async function loadJobs() {
+    try {
+      const { jobs } = await api('/api/jobs');
+      $('conn').textContent = 'connected';
+      const list = $('jobs');
+      list.textContent = '';
+      if (!jobs.length) list.appendChild(el('div', { class: 'muted', text: 'No jobs yet.' }));
+      jobs.forEach((j) => {
+        const badge = el('span', { class: 'badge s-' + j.status, text: j.status + (j.merged ? ' · merged' : '') });
+        const title = el('div', { class: 't', text: j.task.split(/\r?\n/)[0] });
+        const meta = el('div', { class: 'm' }, [el('span', { text: j.model }), badge]);
+        const btn = el('button', { class: 'job' + (selected === j.id ? ' active' : '') }, [title, meta]);
+        btn.addEventListener('click', () => { selected = j.id; loadDetail(); loadJobs(); });
+        list.appendChild(btn);
+      });
+    } catch (e) {
+      $('conn').textContent = 'disconnected: ' + e.message;
+    }
+  }
+
+  async function loadDetail() {
+    if (!selected) { $('detailCard').hidden = true; return; }
+    try {
+      const { job, diffStat, logTail } = await api('/api/job?id=' + encodeURIComponent(selected));
+      $('detailCard').hidden = false;
+      const head = $('detailHead');
+      head.textContent = '';
+      head.appendChild(el('div', { text: job.task }));
+      head.appendChild(el('div', { class: 'muted', text: job.id + ' · ' + job.model + ' · ' + job.status + (job.exitCode !== null ? ' (exit ' + job.exitCode + ')' : '') + (job.note ? ' · ' + job.note : '') }));
+      $('diffStat').textContent = diffStat || '(no file changes yet)';
+      $('logTail').textContent = logTail || '(empty)';
+      $('mergeBtn').disabled = !(job.status === 'done' || job.status === 'failed') || job.merged || job.cleaned;
+      $('cleanBtn').disabled = job.status === 'running' || job.status === 'queued' || job.cleaned;
+    } catch (e) {
+      setMsg('actionMsg', e.message, 'err');
+    }
+  }
+
+  $('newForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    $('startBtn').disabled = true;
+    setMsg('formMsg', 'Starting...');
+    try {
+      const { id } = await post('/api/jobs', { repo: $('repo').value.trim(), model: $('model').value.trim(), task: $('task').value });
+      selected = id;
+      setMsg('formMsg', 'Started ' + id + '. It runs in the background.', 'ok');
+      $('task').value = '';
+      await loadJobs();
+      await loadDetail();
+    } catch (e) {
+      setMsg('formMsg', e.message, 'err');
+    } finally {
+      $('startBtn').disabled = false;
+    }
+  });
+
+  $('mergeBtn').addEventListener('click', async () => {
+    if (!confirm('Merge this job branch into the repository\'s current branch?')) return;
+    try { await post('/api/merge', { id: selected }); setMsg('actionMsg', 'Merged.', 'ok'); }
+    catch (e) { setMsg('actionMsg', e.message, 'err'); }
+    loadDetail(); loadJobs();
+  });
+
+  $('cleanBtn').addEventListener('click', async () => {
+    if (!confirm('Remove the worktree and branch for this job? Unmerged changes will be lost.')) return;
+    try { await post('/api/clean', { id: selected }); setMsg('actionMsg', 'Cleaned up.', 'ok'); }
+    catch (e) {
+      if (confirm(e.message + '\n\nClean anyway and discard the changes?')) {
+        try { await post('/api/clean', { id: selected, force: true }); setMsg('actionMsg', 'Cleaned up.', 'ok'); }
+        catch (e2) { setMsg('actionMsg', e2.message, 'err'); }
+      } else { setMsg('actionMsg', e.message, 'err'); }
+    }
+    loadDetail(); loadJobs();
+  });
+
+  $('refreshBtn').addEventListener('click', () => { loadDetail(); loadJobs(); });
+
+  $('themeBtn').addEventListener('click', () => {
+    const root = document.documentElement;
+    const dark = root.getAttribute('data-theme') === 'dark' || (!root.getAttribute('data-theme') && matchMedia('(prefers-color-scheme: dark)').matches);
+    root.setAttribute('data-theme', dark ? 'light' : 'dark');
+  });
+
+  async function loadChecks() {
+    try {
+      const { checks } = await api('/api/doctor');
+      const box = $('checks');
+      box.textContent = '';
+      checks.forEach((c) => {
+        const cls = c.ok ? 'ok' : (c.name === '9Router' ? 'warn' : 'fail');
+        box.appendChild(el('div', { class: cls, text: (c.ok ? 'OK  ' : (cls === 'warn' ? 'WARN ' : 'FAIL ')) + c.name + ': ' + c.detail }));
+      });
+    } catch (e) {
+      $('checks').textContent = e.message;
+    }
+  }
+
+  async function loadModels() {
+    try {
+      const { models } = await api('/api/models');
+      const dl = $('modelList');
+      dl.textContent = '';
+      models.forEach((m) => dl.appendChild(el('option', { value: m })));
+    } catch (e) { /* free text still works */ }
+  }
+
+  loadJobs(); loadChecks(); loadModels();
+  timer = setInterval(() => { loadJobs(); if (selected) loadDetail(); }, 3000);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "orc-gents",
+  "version": "0.1.0",
+  "description": "Hand coding tasks from Claude Code to OpenCode workers, one git worktree per job, with a local web UI.",
+  "type": "module",
+  "bin": { "orc-gents": "bin/orc-gents.js" },
+  "files": ["bin", "src", "ui", "README.md", "LICENSE"],
+  "engines": { "node": ">=18" },
+  "scripts": { "ui": "node bin/orc-gents.js ui" },
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/miralami/orc-gents.git" },
+  "keywords": ["opencode", "claude-code", "git-worktree", "agents"]
+}
